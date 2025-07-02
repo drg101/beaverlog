@@ -31,7 +31,10 @@ const handler = async (req: Request): Promise<Response> => {
           status: 400,
         });
       }
-      return new Response(route.fn(json));
+      console.log(
+        `${new Date().toISOString()} - ${route_name}${json ? ` ${json}` : ""}`
+      );
+      return Response.json(route.fn(json));
     }
   }
   return new Response("Not a route", {
