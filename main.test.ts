@@ -54,6 +54,16 @@ Deno.test("API tests", async (t) => {
     assertEquals(json[0].timestamp, now);
   });
 
+  await t.step("get event names", async () => {
+    const req = new Request("http://localhost:8000/event_names", {
+      method: "GET",
+    });
+    const res = await handler(req);
+    assertEquals(res.status, 200);
+    const json = await res.json();
+    assertEquals(json, [eventName]);
+  });
+
   await t.step("bad request - create event", async () => {
     const req = new Request("http://localhost:8000/event", {
       method: "POST",

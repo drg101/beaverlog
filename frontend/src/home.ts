@@ -1,14 +1,34 @@
 import { LitElement, html, css } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import logo from "./assets/vite-deno.svg";
+import { Chart } from "./chart.ts";
+import { ChartPrefs, getChartPrefs } from "./chart-prefs.ts";
 
 @customElement("home-element")
 export class Home extends LitElement {
-  @property({ type: Number })
-  count = 0;
+  @property()
+  eventNames: string[] = [];
+
+  @property()
+  chartPrefs: ChartPrefs = getChartPrefs();
+
+  constructor() {
+    super();
+    (async () => {
+      const en: string[] = await (
+        await fetch("http://localhost:8000/event-names")
+      ).json();
+      this.eventNames = en;
+    })();
+  }
+
+  private setChartPrefs(prefs: ChartPrefs) {
+    this.setChartPrefs(prefs);
+    this.chartPrefs = prefs;
+  }
+
 
   override render() {
-    // Header with logo at top left, and name
     return html`<div id="header">
       <img id="logo" src=${logo} />
       <h1 id="title">Analytics placeholder</h1>
@@ -36,14 +56,11 @@ export class Home extends LitElement {
       color: #333;
     }
   `;
-
-  private _onClick() {
-    this.count++;
-  }
 }
 
 declare global {
   interface HTMLElementTagNameMap {
     "home-element": Home;
+    "chart-element": Chart;
   }
 }

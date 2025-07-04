@@ -1,3 +1,4 @@
+import { getEventNames } from "./src/get_event_names.ts";
 import { createEvent } from "./src/create_event.ts";
 import { getEvents } from "./src/get_events.ts";
 import { createEventDto, getEventsDto } from "./src/types/dto.ts";
@@ -15,6 +16,11 @@ const routes: Routes = {
     method: "GET",
     fn: getEvents,
     bodySchema: getEventsDto,
+  },
+  get_event_names: {
+    pattern: new URLPattern({ pathname: "/event-names" }),
+    method: "GET",
+    fn: getEventNames,
   },
 };
 

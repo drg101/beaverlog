@@ -12,7 +12,19 @@ export const createEvent = async (body: z.infer<typeof createEventDto>) => {
     event_id: uuid,
     ...body,
   };
-  await kv.set(key, event);
+  const eventNamesKey = ["event_names"];
+  const eventNames = await kv.get<Set<string>>(eventNamesKey);
+  const updatedEventNames = eventNames.value ?? new Set();
+  updatedEventNames.add(event_name);
+  const res = await kv.atomic()
+    .check(eventNames)
+    .set(key, event)
+    .set(eventNamesKey, updatedEventNames)
+    .commit();
+
+  if (!res.ok) {
+    throw new Error("Failed to create event");
+  }
 
   return { event_id: uuid };
 };
