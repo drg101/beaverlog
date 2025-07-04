@@ -18,14 +18,15 @@ const routes: Routes = {
   },
 };
 
-const handler = async (req: Request): Promise<Response> => {
+export const handler = async (req: Request): Promise<Response> => {
   for (const [route_name, route] of Object.entries(routes)) {
     if (route.pattern.exec(req.url) && route.method === req.method) {
       let json: unknown | undefined;
-      if (req.body && req.method !== "GET") {
-        json = await req.json();
+      if (req.body && req.method === "POST") {
         if (route.bodySchema) {
-          const { data, success, error } = route.bodySchema.safeParse(json);
+          const { data, success, error } = route.bodySchema.safeParse(
+            await req.json()
+          );
           if (!success) {
             return new Response(error.toString(), {
               status: 400,
@@ -33,7 +34,7 @@ const handler = async (req: Request): Promise<Response> => {
           }
           json = data;
         }
-      } else if (req.method === "GET" && req.body && route.bodySchema) {
+      } else if (req.method === "GET" && route.bodySchema) {
         const url = new URL(req.url);
         const { data, error, success } = route.bodySchema.safeParse(
           Object.fromEntries(url.searchParams.entries())
@@ -52,7 +53,8 @@ const handler = async (req: Request): Promise<Response> => {
       console.log(
         `${new Date().toISOString()} - ${route_name}${json ? ` ${json}` : ""}`
       );
-      return Response.json(route.fn(json));
+      const res = await route.fn(json);
+      return Response.json(res);
     }
   }
   return new Response("Not a route", {
