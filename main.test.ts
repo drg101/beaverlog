@@ -31,7 +31,6 @@ Deno.test("API tests", async (t) => {
     const res = await handler(req);
     assertEquals(res.status, 200);
     const json = await res.json();
-    console.log({ json });
     assertEquals(typeof json.event_id, "string");
     eventId = json.event_id;
   });
