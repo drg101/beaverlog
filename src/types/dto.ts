@@ -9,3 +9,9 @@ export const createEventDto = z.object({
   session_id: z.string().optional(),
   metadata: anyObject.optional(),
 });
+
+export const getEventsDto = z.object({
+  event_name: z.string(),
+  start_ms: z.coerce.number(),
+  end_ms: z.coerce.number(),
+});

@@ -4,7 +4,7 @@ import { getEventKey } from "./util.ts";
 import { Event } from "./types/types.ts";
 import { kv } from "./kv.ts";
 
-export const createEvent = (body: z.infer<typeof createEventDto>) => {
+export const createEvent = async (body: z.infer<typeof createEventDto>) => {
   const { timestamp, event_name } = body;
   const uuid = crypto.randomUUID();
   const key = getEventKey(event_name, timestamp, uuid);
@@ -12,7 +12,7 @@ export const createEvent = (body: z.infer<typeof createEventDto>) => {
     event_id: uuid,
     ...body,
   };
-  kv.set(key, event);
+  await kv.set(key, event);
 
   return { event_id: uuid };
 };

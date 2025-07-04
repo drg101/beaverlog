@@ -1,5 +1,6 @@
 import { createEvent } from "./src/create_event.ts";
-import { createEventDto } from "./src/types/dto.ts";
+import { getEvents } from "./src/get_events.ts";
+import { createEventDto, getEventsDto } from "./src/types/dto.ts";
 import { Routes } from "./src/types/types.ts";
 
 const routes: Routes = {
@@ -9,13 +10,19 @@ const routes: Routes = {
     fn: createEvent,
     bodySchema: createEventDto,
   },
+  get_events: {
+    pattern: new URLPattern({ pathname: "/events" }),
+    method: "GET",
+    fn: getEvents,
+    bodySchema: getEventsDto,
+  },
 };
 
 const handler = async (req: Request): Promise<Response> => {
   for (const [route_name, route] of Object.entries(routes)) {
     if (route.pattern.exec(req.url) && route.method === req.method) {
       let json: unknown | undefined;
-      if (req.body) {
+      if (req.body && req.method !== "GET") {
         json = await req.json();
         if (route.bodySchema) {
           const { data, success, error } = route.bodySchema.safeParse(json);
@@ -26,6 +33,17 @@ const handler = async (req: Request): Promise<Response> => {
           }
           json = data;
         }
+      } else if (req.method === "GET" && req.body && route.bodySchema) {
+        const url = new URL(req.url);
+        const { data, error, success } = route.bodySchema.safeParse(
+          Object.fromEntries(url.searchParams.entries())
+        );
+        if (!success) {
+          return new Response(error.toString(), {
+            status: 400,
+          });
+        }
+        json = data;
       } else if (route.bodySchema) {
         new Response("No body given", {
           status: 400,
