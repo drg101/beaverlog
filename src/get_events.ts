@@ -1,5 +1,4 @@
-import { getTimeRangePrefixes } from "./util.ts";
-import { kv } from "./kv.ts";
+import { turso } from "./turso.ts";
 import { Event } from "./types/types.ts";
 
 export const getEvents = async (params: {
@@ -7,19 +6,19 @@ export const getEvents = async (params: {
   start_ms: number;
   end_ms: number;
 }): Promise<Event[]> => {
-  const {event_name, start_ms, end_ms} = params;
-  const prefixes = getTimeRangePrefixes(event_name, start_ms, end_ms);
-  const promises = prefixes.map((prefix) => kv.list<Event>({ prefix }));
-  const iterators = await Promise.all(promises);
+  const { event_name, start_ms, end_ms } = params;
 
-  const events: Event[] = [];
-  for (const iterator of iterators) {
-    for await (const { value } of iterator) {
-      if (value.timestamp >= start_ms && value.timestamp <= end_ms) {
-        events.push(value);
-      }
-    }
-  }
+  const query = await turso.execute({
+    sql: "SELECT * FROM events WHERE name = ? AND timestamp >= ? AND timestamp <= ?",
+    args: [event_name, start_ms, end_ms],
+  });
+
+  const events: Event[] = query.rows.map((row) => ({
+    event_id: row.id as string,
+    event_name: row.name as string,
+    timestamp: Number(row.timestamp),
+    meta: JSON.parse(row.meta as string),
+  }));
 
   return events;
 };

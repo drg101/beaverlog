@@ -1,7 +1,6 @@
-import { kv } from "./kv.ts";
+import { turso } from "./turso.ts";
 
 export const getEventNames = async (): Promise<string[]> => {
-  const eventNamesKey = ["event_names"];
-  const eventNames = await kv.get<Set<string>>(eventNamesKey);
-  return Array.from(eventNames.value ?? []);
+  const query = await turso.execute("SELECT DISTINCT name FROM events");
+  return query.rows.map((row) => row.name as string);
 };

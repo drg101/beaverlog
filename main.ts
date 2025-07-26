@@ -1,6 +1,7 @@
 import { getEventNames } from "./src/get_event_names.ts";
 import { createEvent } from "./src/create_event.ts";
 import { getEvents } from "./src/get_events.ts";
+import { createEventsTable } from "./src/turso.ts";
 import { createEventDto, getEventsDto } from "./src/types/dto.ts";
 import { Routes } from "./src/types/types.ts";
 
@@ -67,4 +68,7 @@ export const handler = async (req: Request): Promise<Response> => {
     status: 400,
   });
 };
+
+await createEventsTable();
+
 Deno.serve(handler);
