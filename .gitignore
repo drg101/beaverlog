@@ -1,5 +1,2 @@
-# For tests
-test_kv
-
-# Env
+node_modules
 .env

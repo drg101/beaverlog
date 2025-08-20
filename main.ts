@@ -1,74 +1,44 @@
-import { getEventNames } from "./src/get_event_names.ts";
-import { createEvent } from "./src/create_event.ts";
-import { getEvents } from "./src/get_events.ts";
-import { createEventsTable } from "./src/turso.ts";
-import { createEventDto, getEventsDto } from "./src/types/dto.ts";
-import { Routes } from "./src/types/types.ts";
+import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { authMiddleware } from "./src/auth.ts";
+import { db } from "./src/db.ts";
+import { EventsArraySchema, LogsArraySchema } from "./src/validation.ts";
 
-const routes: Routes = {
-  create_event: {
-    pattern: new URLPattern({ pathname: "/event" }),
-    method: "POST",
-    fn: createEvent,
-    bodySchema: createEventDto,
-  },
-  get_events: {
-    pattern: new URLPattern({ pathname: "/events" }),
-    method: "GET",
-    fn: getEvents,
-    bodySchema: getEventsDto,
-  },
-  get_event_names: {
-    pattern: new URLPattern({ pathname: "/event-names" }),
-    method: "GET",
-    fn: getEventNames,
-  },
-};
+export const app = new Hono();
 
-export const handler = async (req: Request): Promise<Response> => {
-  for (const [route_name, route] of Object.entries(routes)) {
-    if (route.pattern.exec(req.url) && route.method === req.method) {
-      let json: unknown | undefined;
-      if (req.body && req.method === "POST") {
-        if (route.bodySchema) {
-          const { data, success, error } = route.bodySchema.safeParse(
-            await req.json()
-          );
-          if (!success) {
-            return new Response(error.toString(), {
-              status: 400,
-            });
-          }
-          json = data;
-        }
-      } else if (req.method === "GET" && route.bodySchema) {
-        const url = new URL(req.url);
-        const { data, error, success } = route.bodySchema.safeParse(
-          Object.fromEntries(url.searchParams.entries())
-        );
-        if (!success) {
-          return new Response(error.toString(), {
-            status: 400,
-          });
-        }
-        json = data;
-      } else if (route.bodySchema) {
-        new Response("No body given", {
-          status: 400,
-        });
-      }
-      console.log(
-        `${new Date().toISOString()} - ${route_name}${json ? ` ${json}` : ""}`
-      );
-      const res = await route.fn(json);
-      return Response.json(res);
+
+app.post(
+  "/events",
+  authMiddleware,
+  zValidator("json", EventsArraySchema),
+  async (c) => {
+    const events = c.req.valid("json");
+
+    try {
+      await db.insertInto("events").values(events).execute();
+      return c.json({ success: true, count: events.length });
+    } catch (error) {
+      return c.json({ error: "Failed to insert events" }, 500);
     }
   }
-  return new Response("Not a route", {
-    status: 400,
-  });
-};
+);
 
-await createEventsTable();
+app.post(
+  "/logs",
+  authMiddleware,
+  zValidator("json", LogsArraySchema),
+  async (c) => {
+    const logs = c.req.valid("json");
 
-Deno.serve(handler);
+    try {
+      await db.insertInto("logs").values(logs).execute();
+      return c.json({ success: true, count: logs.length });
+    } catch (error) {
+      return c.json({ error: "Failed to insert logs" }, 500);
+    }
+  }
+);
+
+if (import.meta.main) {
+  Deno.serve(app.fetch);
+}

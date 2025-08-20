@@ -1,87 +1,119 @@
-import { assertEquals } from "@std/assert/equals";
-import { handler } from "./main.ts";
-import { turso } from "./src/turso.ts";
+import { assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 
-const cleanup = async () => {
-  await turso.execute("DELETE FROM events");
-};
+// Set test database URL before importing anything
+Deno.env.set("DATABASE_URL", Deno.env.get("TEST_DATABASE_URL") || "");
 
-Deno.test("API tests", async (t) => {
-  await t.step("cleanup", cleanup);
+// Import the app after setting the test database URL
+const { app } = await import("./main.ts");
+const { db } = await import("./src/db.ts");
 
-  const eventName = "test_event";
-  const now = new Date();
-  let eventId: string;
+const TEST_APP_ID = "test-app-123";
+const TEST_TOKEN = "test-token-456";
 
-  await t.step("create event", async () => {
-    const req = new Request("http://localhost:8000/event", {
+Deno.test("API Endpoints", async (t) => {
+  // Zero timeout workaround for Deno leak detection
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  await t.step("setup test data", async () => {
+    // Create test app in database
+    await db
+      .insertInto("apps")
+      .values({
+        app_id: TEST_APP_ID,
+        token: TEST_TOKEN,
+      })
+      .execute();
+  });
+
+  await t.step("should reject requests without auth headers", async () => {
+    const res = await app.request("/events", {
       method: "POST",
-      body: JSON.stringify({
-        event_name: eventName,
-        timestamp: now.toISOString(),
-        meta: {},
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify([]),
     });
-    const res = await handler(req);
-    assertEquals(res.status, 200);
-    const json = await res.json();
-    assertEquals(typeof json.event_id, "string");
-    eventId = json.event_id;
+    assertEquals(res.status, 401);
   });
 
-  await t.step("get events", async () => {
-    const url = new URL("http://localhost:8000/events");
-    url.searchParams.set("event_name", eventName);
-    url.searchParams.set("start_ms", (now.getTime() - 1000).toString());
-    url.searchParams.set("end_ms", (now.getTime() + 1000).toString());
+  await t.step("should accept valid events with auth", async () => {
+    const events = [
+      {
+        name: "user_login",
+        timestamp: 1234567890,
+        session_id: "sess-123",
+        uid: "user-456",
+        meta: { browser: "chrome" },
+      },
+    ];
 
-    const req = new Request(url.toString(), {
-      method: "GET",
-    });
-
-    const res = await handler(req);
-    assertEquals(res.status, 200);
-    const json = await res.json();
-    assertEquals(json.length, 1);
-    assertEquals(json[0].id, eventId);
-    assertEquals(json[0].name, eventName);
-    // Allow for a small difference in timestamps
-    const timestampDiff = Math.abs(
-      new Date(json[0].timestamp).getTime() - now.getTime()
-    );
-    assertEquals(timestampDiff < 1000, true);
-  });
-
-  await t.step("get event names", async () => {
-    const req = new Request("http://localhost:8000/event-names", {
-      method: "GET",
-    });
-    const res = await handler(req);
-    assertEquals(res.status, 200);
-    const json = await res.json();
-    assertEquals(json, [eventName]);
-  });
-
-  await t.step("bad request - create event", async () => {
-    const req = new Request("http://localhost:8000/event", {
+    const res = await app.request("/events", {
       method: "POST",
-      body: JSON.stringify({
-        // Missing event_name and timestamp
-      }),
+      headers: {
+        "Content-Type": "application/json",
+        app_id: TEST_APP_ID,
+        token: TEST_TOKEN,
+      },
+      body: JSON.stringify(events),
     });
-    const res = await handler(req);
+
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.success, true);
+    assertEquals(data.count, 1);
+  });
+
+  await t.step("should accept valid logs with auth", async () => {
+    const logs = [
+      {
+        message: "User logged in successfully",
+        uid: "user-456",
+        session_id: "sess-123",
+        timestamp: 1234567890,
+        data: { ip: "192.168.1.1" },
+      },
+    ];
+
+    const res = await app.request("/logs", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        app_id: TEST_APP_ID,
+        token: TEST_TOKEN,
+      },
+      body: JSON.stringify(logs),
+    });
+
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.success, true);
+    assertEquals(data.count, 1);
+  });
+
+  await t.step("should reject invalid event data", async () => {
+    const invalidEvents = [
+      {
+        name: "user_login",
+        // missing required fields
+      },
+    ];
+
+    const res = await app.request("/events", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        app_id: TEST_APP_ID,
+        token: TEST_TOKEN,
+      },
+      body: JSON.stringify(invalidEvents),
+    });
+
     assertEquals(res.status, 400);
   });
 
-  await t.step("bad request - get events", async () => {
-    const url = new URL("http://localhost:8000/events");
-    // Missing required parameters
-    const req = new Request(url.toString(), {
-      method: "GET",
-    });
-    const res = await handler(req);
-    assertEquals(res.status, 400);
+  await t.step("cleanup test data", async () => {
+    // Clean up test data
+    await db.deleteFrom("events").execute();
+    await db.deleteFrom("logs").execute();
+    await db.deleteFrom("apps").where("app_id", "=", TEST_APP_ID).execute();
+    await db.destroy();
   });
-
-  await t.step("cleanup", cleanup);
 });

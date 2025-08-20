@@ -1,11 +1,18 @@
 {
-  "tasks": {
-    "dev": "deno run --watch --allow-env --unstable-kv --allow-net --allow-read --allow-write --env-file main.ts",
-    "test": "deno test --allow-env --unstable-kv --allow-net --allow-read --allow-write --env-file"
-  },
   "imports": {
-    "@libsql/client": "npm:@libsql/client@^0.15.10",
-    "@std/assert": "jsr:@std/assert@1",
-    "zod": "npm:zod@^3.25.67"
+    "hono": "npm:hono@^4.9.2",
+    "kysely": "npm:kysely@^0.27.0",
+    "pg": "npm:pg@^8.11.0",
+    "@types/pg": "npm:@types/pg@^8.11.0",
+    "zod": "npm:zod@^3.22.0",
+    "@hono/zod-validator": "npm:@hono/zod-validator@^0.2.0"
+  },
+  "tasks": {
+    "start": "deno run --allow-net --allow-env main.ts",
+    "test": "deno test --allow-all --env"
+  },
+  "compilerOptions": {
+    "jsx": "precompile",
+    "jsxImportSource": "hono/jsx"
   }
 }
