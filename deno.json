@@ -5,11 +5,14 @@
     "pg": "npm:pg@^8.11.0",
     "@types/pg": "npm:@types/pg@^8.11.0",
     "zod": "npm:zod@^3.22.0",
-    "@hono/zod-validator": "npm:@hono/zod-validator@^0.2.0"
+    "@hono/zod-validator": "npm:@hono/zod-validator@^0.2.0",
+    "@hono/node-server": "npm:@hono/node-server@^1.8.0"
   },
   "tasks": {
-    "start": "deno run --allow-net --allow-env main.ts",
-    "test": "deno test --allow-all --env"
+    "start": "deno run --allow-net --allow-env --allow-read --env main.ts",
+    "test": "deno test --allow-all --env",
+    "build": "cd frontend && npm run build",
+    "dev": "cd frontend && npm run dev"
   },
   "compilerOptions": {
     "jsx": "precompile",

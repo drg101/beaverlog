@@ -6,6 +6,8 @@ import {
 } from "./src/auth.ts";
 import { db } from "./src/db.ts";
 import { EventsArraySchema, LogsArraySchema } from "./src/validation.ts";
+import { generateAppCredentials } from "./src/utils.ts";
+import { serveStatic } from "hono/deno";
 
 type Variables = {
   appId: string;
@@ -13,7 +15,23 @@ type Variables = {
 
 export const app = new Hono<{ Variables: Variables }>();
 
-app.post(
+// API routes
+const api = new Hono<{ Variables: Variables }>();
+
+api.post("/apps", async (c) => {
+  try {
+    const credentials = generateAppCredentials();
+
+    await db.insertInto("apps").values(credentials).execute();
+
+    return c.json(credentials, 201);
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: "Failed to create app" }, 500);
+  }
+});
+
+api.post(
   "/events",
   publicKeyAuthMiddleware,
   zValidator("json", EventsArraySchema),
@@ -36,7 +54,7 @@ app.post(
   }
 );
 
-app.post(
+api.post(
   "/logs",
   publicKeyAuthMiddleware,
   zValidator("json", LogsArraySchema),
@@ -59,7 +77,7 @@ app.post(
   }
 );
 
-app.get("/events", privateKeyAuthMiddleware, async (c) => {
+api.get("/events", privateKeyAuthMiddleware, async (c) => {
   const appId = c.get("appId");
   const fromTime = c.req.query("from");
   const toTime = c.req.query("to");
@@ -94,7 +112,7 @@ app.get("/events", privateKeyAuthMiddleware, async (c) => {
   }
 });
 
-app.get("/logs", privateKeyAuthMiddleware, async (c) => {
+api.get("/logs", privateKeyAuthMiddleware, async (c) => {
   const appId = c.get("appId");
   const fromTime = c.req.query("from");
   const toTime = c.req.query("to");
@@ -128,6 +146,15 @@ app.get("/logs", privateKeyAuthMiddleware, async (c) => {
     return c.json({ error: "Failed to retrieve logs" }, 500);
   }
 });
+
+// Mount API routes
+app.route("/api", api);
+
+// Serve static files
+app.use("/*", serveStatic({ root: "./frontend/dist" }));
+
+// Fallback for SPA routing
+app.get("*", serveStatic({ path: "./frontend/dist/index.html" }));
 
 if (import.meta.main) {
   Deno.serve(app.fetch);

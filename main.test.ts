@@ -7,28 +7,40 @@ Deno.env.set("DATABASE_URL", Deno.env.get("TEST_DATABASE_URL") || "");
 const { app } = await import("./main.ts");
 const { db } = await import("./src/db.ts");
 
-const TEST_APP_ID = "test-app-123";
-const TEST_PUBLIC_KEY = "test-public-key-456";
-const TEST_PRIVATE_KEY = "test-private-key-789";
+let TEST_APP_ID: string;
+let TEST_PUBLIC_KEY: string;
+let TEST_PRIVATE_KEY: string;
 
 Deno.test("API Endpoints", async (t) => {
   // Zero timeout workaround for Deno leak detection
   await new Promise((resolve) => setTimeout(resolve, 0));
 
-  await t.step("setup test data", async () => {
-    // Create test app in database
-    await db
-      .insertInto("apps")
-      .values({
-        app_id: TEST_APP_ID,
-        public_key: TEST_PUBLIC_KEY,
-        private_key: TEST_PRIVATE_KEY,
-      })
-      .execute();
+  await t.step("should create new app", async () => {
+    const res = await app.request("/api/apps", {
+      method: "POST",
+    });
+
+    assertEquals(res.status, 201);
+    const data = await res.json();
+    
+    // Store credentials for use in other tests
+    TEST_APP_ID = data.app_id;
+    TEST_PUBLIC_KEY = data.public_key;
+    TEST_PRIVATE_KEY = data.private_key;
+    
+    // Verify structure
+    assertEquals(typeof data.app_id, "string");
+    assertEquals(typeof data.public_key, "string");
+    assertEquals(typeof data.private_key, "string");
+    
+    // Verify prefixes
+    assertEquals(data.app_id.startsWith("app_"), true);
+    assertEquals(data.public_key.startsWith("pk_"), true);
+    assertEquals(data.private_key.startsWith("sk_"), true);
   });
 
   await t.step("should reject requests without auth headers", async () => {
-    const res = await app.request("/events", {
+    const res = await app.request("/api/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify([]),
@@ -47,7 +59,7 @@ Deno.test("API Endpoints", async (t) => {
       },
     ];
 
-    const res = await app.request("/events", {
+    const res = await app.request("/api/events", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -74,7 +86,7 @@ Deno.test("API Endpoints", async (t) => {
       },
     ];
 
-    const res = await app.request("/logs", {
+    const res = await app.request("/api/logs", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -98,7 +110,7 @@ Deno.test("API Endpoints", async (t) => {
       },
     ];
 
-    const res = await app.request("/events", {
+    const res = await app.request("/api/events", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -130,7 +142,7 @@ Deno.test("API Endpoints", async (t) => {
       },
     ];
 
-    await app.request("/events", {
+    await app.request("/api/events", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -141,7 +153,7 @@ Deno.test("API Endpoints", async (t) => {
     });
 
     // Now retrieve events in the time range
-    const res = await app.request("/events?from=500000&to=1500000", {
+    const res = await app.request("/api/events?from=500000&to=1500000", {
       method: "GET",
       headers: {
         app_id: TEST_APP_ID,
@@ -156,7 +168,7 @@ Deno.test("API Endpoints", async (t) => {
   });
 
   await t.step("should reject GET requests without time parameters", async () => {
-    const res = await app.request("/events", {
+    const res = await app.request("/api/events", {
       method: "GET",
       headers: {
         app_id: TEST_APP_ID,
@@ -186,7 +198,7 @@ Deno.test("API Endpoints", async (t) => {
       },
     ];
 
-    await app.request("/logs", {
+    await app.request("/api/logs", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -197,7 +209,7 @@ Deno.test("API Endpoints", async (t) => {
     });
 
     // Now retrieve logs in the time range
-    const res = await app.request("/logs?from=500000&to=1500000", {
+    const res = await app.request("/api/logs?from=500000&to=1500000", {
       method: "GET",
       headers: {
         app_id: TEST_APP_ID,
@@ -212,7 +224,7 @@ Deno.test("API Endpoints", async (t) => {
   });
 
   await t.step("should reject GET logs requests without time parameters", async () => {
-    const res = await app.request("/logs", {
+    const res = await app.request("/api/logs", {
       method: "GET",
       headers: {
         app_id: TEST_APP_ID,

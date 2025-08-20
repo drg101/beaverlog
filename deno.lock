@@ -1,6 +1,7 @@
 {
   "version": "5",
   "specifiers": {
+    "npm:@hono/node-server@^1.8.0": "1.19.0_hono@4.9.2",
     "npm:@hono/zod-validator@0.2": "0.2.2_hono@4.9.2_zod@3.25.67",
     "npm:@jest/globals@^29.7.0": "29.7.0",
     "npm:@types/jest@^29.5.0": "29.5.14",
@@ -263,6 +264,12 @@
     },
     "@bcoe/v8-coverage@0.2.3": {
       "integrity": "sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw=="
+    },
+    "@hono/node-server@1.19.0_hono@4.9.2": {
+      "integrity": "sha512-1k8/8OHf5VIymJEcJyVksFpT+AQ5euY0VA5hUkCnlKpD4mr8FSbvXaHblxeTTEr90OaqWzAkQaqD80qHZQKxBA==",
+      "dependencies": [
+        "hono"
+      ]
     },
     "@hono/zod-validator@0.2.2_hono@4.9.2_zod@3.25.67": {
       "integrity": "sha512-dSDxaPV70Py8wuIU2QNpoVEIOSzSXZ/6/B/h4xA7eOMz7+AarKTSGV8E6QwrdcCbBLkpqfJ4Q2TmBO0eP1tCBQ==",
@@ -1877,6 +1884,7 @@
   },
   "workspace": {
     "dependencies": [
+      "npm:@hono/node-server@^1.8.0",
       "npm:@hono/zod-validator@0.2",
       "npm:@types/pg@^8.11.0",
       "npm:hono@^4.9.2",
