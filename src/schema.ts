@@ -17,6 +17,7 @@ export interface EventTable {
   timestamp: number;
   session_id: string;
   uid: string;
+  app_id: string;
   meta: any;
 }
 
@@ -26,6 +27,7 @@ export interface LogTable {
   uid: string;
   session_id: string;
   timestamp: number;
+  app_id: string;
   data: any;
 }
 
@@ -40,7 +42,8 @@ export type LogUpdate = Updateable<LogTable>;
 export interface AppTable {
   id: Generated<number>;
   app_id: string;
-  token: string;
+  public_key: string;
+  private_key: string;
 }
 
 export type App = Selectable<AppTable>;

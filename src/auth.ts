@@ -1,23 +1,50 @@
 import { createMiddleware } from 'hono/factory'
 import { db } from './db.ts'
 
-export const authMiddleware = createMiddleware(async (c, next) => {
+type Variables = {
+  appId: string
+}
+
+export const publicKeyAuthMiddleware = createMiddleware<{ Variables: Variables }>(async (c, next) => {
   const appId = c.req.header('app_id')
-  const token = c.req.header('token')
+  const publicKey = c.req.header('public_key')
   
-  if (!appId || !token) {
-    return c.json({ error: 'Missing app_id or token headers' }, 401)
+  if (!appId || !publicKey) {
+    return c.json({ error: 'Missing app_id or public_key headers' }, 401)
   }
   
   const app = await db
     .selectFrom('apps')
     .selectAll()
     .where('app_id', '=', appId)
-    .where('token', '=', token)
+    .where('public_key', '=', publicKey)
     .executeTakeFirst()
   
   if (!app) {
-    return c.json({ error: 'Invalid app_id or token' }, 401)
+    return c.json({ error: 'Invalid app_id or public_key' }, 401)
+  }
+  
+  c.set('appId', appId)
+  await next()
+})
+
+export const privateKeyAuthMiddleware = createMiddleware<{ Variables: Variables }>(async (c, next) => {
+  const appId = c.req.header('app_id')
+  const privateKey = c.req.header('private_key')
+  
+  if (!appId || !privateKey) {
+    return c.json({ error: 'Missing app_id or private_key headers' }, 401)
+  }
+  
+  const app = await db
+    .selectFrom('apps')
+    .selectAll()
+    .where('app_id', '=', appId)
+    .where('private_key', '=', privateKey)
+    .executeTakeFirst()
+  
+  if (!app) {
+    return c.json({ error: 'Invalid app_id or private_key' }, 401)
   }
   
   c.set('appId', appId)
