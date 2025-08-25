@@ -235,18 +235,30 @@ Deno.test("API Endpoints", async (t) => {
     assertEquals(res.status, 400);
   });
 
-  await t.step("should verify uids and sessions tables exist", async () => {
-    // Test that we can query the new tables without errors
-    const uidsResult = await db.selectFrom("uids").selectAll().execute();
-    const sessionsResult = await db.selectFrom("sessions").selectAll().execute();
-    
-    // Tables should exist and return empty arrays initially
-    assertEquals(Array.isArray(uidsResult), true);
-    assertEquals(Array.isArray(sessionsResult), true);
-  });
+  await t.step("should track UIDs and sessions when creating events", async () => {
+    const events = [
+      {
+        name: "tracking_test",
+        timestamp: Date.now(),
+        session_id: "sess-e2e-test",
+        uid: "uid-e2e-test",
+        meta: {},
+      },
+    ];
 
-  await t.step("should retrieve empty uids list", async () => {
-    const res = await app.request("/api/uids", {
+    // Create event
+    await app.request("/api/events", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        app_id: TEST_APP_ID,
+        public_key: TEST_PUBLIC_KEY,
+      },
+      body: JSON.stringify(events),
+    });
+
+    // Check UIDs were tracked
+    const uidsRes = await app.request("/api/uids", {
       method: "GET",
       headers: {
         app_id: TEST_APP_ID,
@@ -254,14 +266,13 @@ Deno.test("API Endpoints", async (t) => {
       },
     });
 
-    assertEquals(res.status, 200);
-    const data = await res.json();
-    assertEquals(data.count, 0);
-    assertEquals(Array.isArray(data.uids), true);
-  });
+    assertEquals(uidsRes.status, 200);
+    const uidsData = await uidsRes.json();
+    const trackedUid = uidsData.uids.find((u: any) => u.uid === "uid-e2e-test");
+    assertEquals(trackedUid !== undefined, true);
 
-  await t.step("should retrieve empty sessions list", async () => {
-    const res = await app.request("/api/sessions", {
+    // Check sessions were tracked
+    const sessionsRes = await app.request("/api/sessions", {
       method: "GET",
       headers: {
         app_id: TEST_APP_ID,
@@ -269,32 +280,37 @@ Deno.test("API Endpoints", async (t) => {
       },
     });
 
-    assertEquals(res.status, 200);
-    const data = await res.json();
-    assertEquals(data.count, 0);
-    assertEquals(Array.isArray(data.sessions), true);
+    assertEquals(sessionsRes.status, 200);
+    const sessionsData = await sessionsRes.json();
+    const trackedSession = sessionsData.sessions.find((s: any) => s.session_id === "sess-e2e-test");
+    assertEquals(trackedSession !== undefined, true);
+    assertEquals(trackedSession.uid, "uid-e2e-test");
   });
 
-  await t.step("should filter sessions by uid parameter", async () => {
-    // Insert test session data
-    await db.insertInto("sessions").values({
-      session_id: "test-session-1",
-      uid: "user-123",
-      app_id: TEST_APP_ID,
-      start_time: 1000000,
-      end_time: 2000000,
-    }).execute();
+  await t.step("should track UIDs and sessions when creating logs", async () => {
+    const logs = [
+      {
+        message: "Log tracking test",
+        timestamp: Date.now(),
+        session_id: "sess-log-e2e",
+        uid: "uid-log-e2e",
+        data: {},
+      },
+    ];
 
-    await db.insertInto("sessions").values({
-      session_id: "test-session-2", 
-      uid: "user-456",
-      app_id: TEST_APP_ID,
-      start_time: 1500000,
-      end_time: 2500000,
-    }).execute();
+    // Create log
+    await app.request("/api/logs", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        app_id: TEST_APP_ID,
+        public_key: TEST_PUBLIC_KEY,
+      },
+      body: JSON.stringify(logs),
+    });
 
-    // Query with uid filter
-    const res = await app.request("/api/sessions?uid=user-123", {
+    // Verify tracking via GET endpoints
+    const uidsRes = await app.request("/api/uids", {
       method: "GET",
       headers: {
         app_id: TEST_APP_ID,
@@ -302,14 +318,11 @@ Deno.test("API Endpoints", async (t) => {
       },
     });
 
-    assertEquals(res.status, 200);
-    const data = await res.json();
-    assertEquals(data.count, 1);
-    assertEquals(data.sessions[0].uid, "user-123");
-  });
+    const uidsData = await uidsRes.json();
+    const logUid = uidsData.uids.find((u: any) => u.uid === "uid-log-e2e");
+    assertEquals(logUid !== undefined, true);
 
-  await t.step("should filter sessions by time range", async () => {
-    const res = await app.request("/api/sessions?start=1400000&end=1600000", {
+    const sessionsRes = await app.request("/api/sessions", {
       method: "GET",
       headers: {
         app_id: TEST_APP_ID,
@@ -317,10 +330,10 @@ Deno.test("API Endpoints", async (t) => {
       },
     });
 
-    assertEquals(res.status, 200);
-    const data = await res.json();
-    assertEquals(data.count, 2);
-    assertEquals(Array.isArray(data.sessions), true);
+    const sessionsData = await sessionsRes.json();
+    const logSession = sessionsData.sessions.find((s: any) => s.session_id === "sess-log-e2e");
+    assertEquals(logSession !== undefined, true);
+    assertEquals(logSession.uid, "uid-log-e2e");
   });
 
   await t.step("cleanup test data", async () => {

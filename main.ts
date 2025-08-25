@@ -7,6 +7,7 @@ import {
 import { db } from "./src/db.ts";
 import { EventsArraySchema, LogsArraySchema } from "./src/validation.ts";
 import { generateAppCredentials } from "./src/utils.ts";
+import { trackUidsAndSessions } from "./src/tracking.ts";
 import { serveStatic } from "hono/deno";
 
 type Variables = {
@@ -69,6 +70,10 @@ api.post(
     }));
 
     try {
+      // Track UIDs and sessions
+      await trackUidsAndSessions(events, appId);
+      
+      // Insert events
       await db.insertInto("events").values(eventsWithAppId).execute();
       return c.json({ success: true, count: events.length });
     } catch (error) {
@@ -93,6 +98,10 @@ api.post(
     }));
 
     try {
+      // Track UIDs and sessions
+      await trackUidsAndSessions(logs, appId);
+      
+      // Insert logs
       await db.insertInto("logs").values(logsWithAppId).execute();
       return c.json({ success: true, count: logs.length });
     } catch (error) {

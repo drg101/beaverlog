@@ -53,11 +53,12 @@ CREATE TABLE IF NOT EXISTS uids (
 
 -- Create sessions table
 CREATE TABLE IF NOT EXISTS sessions (
-    session_id VARCHAR(255) PRIMARY KEY,
+    session_id VARCHAR(255) NOT NULL,
     uid VARCHAR(255) NOT NULL,
     app_id VARCHAR(255) NOT NULL,
     start_time BIGINT NOT NULL,
-    end_time BIGINT NOT NULL
+    end_time BIGINT NOT NULL,
+    PRIMARY KEY (session_id, app_id)
 );
 
 -- Create indexes for better query performance
