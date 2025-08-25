@@ -9,6 +9,8 @@ export interface Database {
   events: EventTable;
   logs: LogTable;
   apps: AppTable;
+  uids: UidTable;
+  sessions: SessionTable;
 }
 
 export interface EventTable {
@@ -49,3 +51,26 @@ export interface AppTable {
 export type App = Selectable<AppTable>;
 export type NewApp = Insertable<AppTable>;
 export type AppUpdate = Updateable<AppTable>;
+
+export interface UidTable {
+  uid: string;
+  app_id: string;
+  first_seen: number;
+  last_seen: number;
+}
+
+export type Uid = Selectable<UidTable>;
+export type NewUid = Insertable<UidTable>;
+export type UidUpdate = Updateable<UidTable>;
+
+export interface SessionTable {
+  session_id: string;
+  uid: string;
+  app_id: string;
+  start_time: number;
+  end_time: number;
+}
+
+export type Session = Selectable<SessionTable>;
+export type NewSession = Insertable<SessionTable>;
+export type SessionUpdate = Updateable<SessionTable>;

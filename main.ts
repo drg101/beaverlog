@@ -15,6 +15,29 @@ type Variables = {
 
 export const app = new Hono<{ Variables: Variables }>();
 
+// Request logging middleware
+app.use("*", async (c, next) => {
+  const method = c.req.method;
+  const url = c.req.url;
+  
+  let body = "";
+  if (method !== "GET" && method !== "HEAD") {
+    try {
+      const clonedRequest = c.req.raw.clone();
+      const text = await clonedRequest.text();
+      if (text) {
+        body = ` - ${text}`;
+      }
+    } catch (error) {
+      // Ignore body parsing errors
+    }
+  }
+  
+  console.log(`${method} - ${url}${body}`);
+  
+  await next();
+});
+
 // API routes
 const api = new Hono<{ Variables: Variables }>();
 
@@ -49,6 +72,7 @@ api.post(
       await db.insertInto("events").values(eventsWithAppId).execute();
       return c.json({ success: true, count: events.length });
     } catch (error) {
+      console.error("Failed to insert events:", error);
       return c.json({ error: "Failed to insert events" }, 500);
     }
   }
@@ -72,6 +96,7 @@ api.post(
       await db.insertInto("logs").values(logsWithAppId).execute();
       return c.json({ success: true, count: logs.length });
     } catch (error) {
+      console.error("Failed to insert logs:", error);
       return c.json({ error: "Failed to insert logs" }, 500);
     }
   }
@@ -108,6 +133,7 @@ api.get("/events", privateKeyAuthMiddleware, async (c) => {
 
     return c.json({ events, count: events.length });
   } catch (error) {
+    console.error("Failed to retrieve events:", error);
     return c.json({ error: "Failed to retrieve events" }, 500);
   }
 });
@@ -143,7 +169,57 @@ api.get("/logs", privateKeyAuthMiddleware, async (c) => {
 
     return c.json({ logs, count: logs.length });
   } catch (error) {
+    console.error("Failed to retrieve logs:", error);
     return c.json({ error: "Failed to retrieve logs" }, 500);
+  }
+});
+
+api.get("/uids", privateKeyAuthMiddleware, async (c) => {
+  const appId = c.get("appId");
+
+  try {
+    const uids = await db
+      .selectFrom("uids")
+      .selectAll()
+      .where("app_id", "=", appId)
+      .orderBy("last_seen", "desc")
+      .execute();
+
+    return c.json({ uids, count: uids.length });
+  } catch (error) {
+    console.error("Failed to retrieve uids:", error);
+    return c.json({ error: "Failed to retrieve uids" }, 500);
+  }
+});
+
+api.get("/sessions", privateKeyAuthMiddleware, async (c) => {
+  const appId = c.get("appId");
+  const uid = c.req.query("uid");
+  const startTime = c.req.query("start");
+  const endTime = c.req.query("end");
+
+  const startTimestamp = startTime ? parseInt(startTime) : null;
+  const endTimestamp = endTime ? parseInt(endTime) : null;
+
+  try {
+    const sessions = await db
+      .selectFrom("sessions")
+      .selectAll()
+      .where("app_id", "=", appId)
+      .$if(!!uid, (qb) => qb.where("uid", "=", uid!))
+      .$if(startTimestamp !== null && !isNaN(startTimestamp), (qb) =>
+        qb.where("end_time", ">=", startTimestamp!)
+      )
+      .$if(endTimestamp !== null && !isNaN(endTimestamp), (qb) =>
+        qb.where("start_time", "<=", endTimestamp!)
+      )
+      .orderBy("start_time", "desc")
+      .execute();
+
+    return c.json({ sessions, count: sessions.length });
+  } catch (error) {
+    console.error("Failed to retrieve sessions:", error);
+    return c.json({ error: "Failed to retrieve sessions" }, 500);
   }
 });
 

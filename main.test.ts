@@ -235,10 +235,100 @@ Deno.test("API Endpoints", async (t) => {
     assertEquals(res.status, 400);
   });
 
+  await t.step("should verify uids and sessions tables exist", async () => {
+    // Test that we can query the new tables without errors
+    const uidsResult = await db.selectFrom("uids").selectAll().execute();
+    const sessionsResult = await db.selectFrom("sessions").selectAll().execute();
+    
+    // Tables should exist and return empty arrays initially
+    assertEquals(Array.isArray(uidsResult), true);
+    assertEquals(Array.isArray(sessionsResult), true);
+  });
+
+  await t.step("should retrieve empty uids list", async () => {
+    const res = await app.request("/api/uids", {
+      method: "GET",
+      headers: {
+        app_id: TEST_APP_ID,
+        private_key: TEST_PRIVATE_KEY,
+      },
+    });
+
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.count, 0);
+    assertEquals(Array.isArray(data.uids), true);
+  });
+
+  await t.step("should retrieve empty sessions list", async () => {
+    const res = await app.request("/api/sessions", {
+      method: "GET",
+      headers: {
+        app_id: TEST_APP_ID,
+        private_key: TEST_PRIVATE_KEY,
+      },
+    });
+
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.count, 0);
+    assertEquals(Array.isArray(data.sessions), true);
+  });
+
+  await t.step("should filter sessions by uid parameter", async () => {
+    // Insert test session data
+    await db.insertInto("sessions").values({
+      session_id: "test-session-1",
+      uid: "user-123",
+      app_id: TEST_APP_ID,
+      start_time: 1000000,
+      end_time: 2000000,
+    }).execute();
+
+    await db.insertInto("sessions").values({
+      session_id: "test-session-2", 
+      uid: "user-456",
+      app_id: TEST_APP_ID,
+      start_time: 1500000,
+      end_time: 2500000,
+    }).execute();
+
+    // Query with uid filter
+    const res = await app.request("/api/sessions?uid=user-123", {
+      method: "GET",
+      headers: {
+        app_id: TEST_APP_ID,
+        private_key: TEST_PRIVATE_KEY,
+      },
+    });
+
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.count, 1);
+    assertEquals(data.sessions[0].uid, "user-123");
+  });
+
+  await t.step("should filter sessions by time range", async () => {
+    const res = await app.request("/api/sessions?start=1400000&end=1600000", {
+      method: "GET",
+      headers: {
+        app_id: TEST_APP_ID,
+        private_key: TEST_PRIVATE_KEY,
+      },
+    });
+
+    assertEquals(res.status, 200);
+    const data = await res.json();
+    assertEquals(data.count, 2);
+    assertEquals(Array.isArray(data.sessions), true);
+  });
+
   await t.step("cleanup test data", async () => {
     // Clean up test data
     await db.deleteFrom("events").execute();
     await db.deleteFrom("logs").execute();
+    await db.deleteFrom("uids").execute();
+    await db.deleteFrom("sessions").execute();
     await db.deleteFrom("apps").where("app_id", "=", TEST_APP_ID).execute();
     await db.destroy();
   });
